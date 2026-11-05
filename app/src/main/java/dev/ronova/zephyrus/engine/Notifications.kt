@@ -21,14 +21,14 @@ object Notifications {
     fun ensureChannels(context: Context) {
         val nm = context.getSystemService(NotificationManager::class.java)
         nm.createNotificationChannel(
-            NotificationChannel(CHANNEL_PROGRESS, "Загрузки", NotificationManager.IMPORTANCE_LOW).apply {
-                description = "Ход текущей загрузки"
+            NotificationChannel(CHANNEL_PROGRESS, context.getString(R.string.channel_downloads), NotificationManager.IMPORTANCE_LOW).apply {
+                description = context.getString(R.string.channel_downloads_desc)
                 setShowBadge(false)
             }
         )
         nm.createNotificationChannel(
-            NotificationChannel(CHANNEL_DONE, "Завершённые загрузки", NotificationManager.IMPORTANCE_DEFAULT).apply {
-                description = "Сообщения о готовых файлах и ошибках"
+            NotificationChannel(CHANNEL_DONE, context.getString(R.string.channel_finished), NotificationManager.IMPORTANCE_DEFAULT).apply {
+                description = context.getString(R.string.channel_finished_desc)
             }
         )
     }

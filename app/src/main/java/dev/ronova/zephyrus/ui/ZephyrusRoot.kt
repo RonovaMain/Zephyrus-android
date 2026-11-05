@@ -35,6 +35,8 @@ import dev.ronova.zephyrus.ui.download.DownloadScreen
 import dev.ronova.zephyrus.ui.history.HistoryScreen
 import dev.ronova.zephyrus.ui.sessions.SessionsScreen
 import dev.ronova.zephyrus.ui.settings.SettingsScreen
+import androidx.compose.ui.res.stringResource
+import dev.ronova.zephyrus.R
 
 private data class Tab(val title: String, val icon: ImageVector)
 
@@ -47,10 +49,10 @@ fun ZephyrusRoot() {
     LaunchedEffect(shared) { if (shared != null) tab = 0 }
 
     val tabs = listOf(
-        Tab("Загрузка", ZIcons.Download),
-        Tab("Сессии", ZIcons.Key),
-        Tab("История", ZIcons.History),
-        Tab("Настройки", Icons.Filled.Settings),
+        Tab(stringResource(R.string.nav_download), ZIcons.Download),
+        Tab(stringResource(R.string.nav_sessions), ZIcons.Key),
+        Tab(stringResource(R.string.nav_history), ZIcons.History),
+        Tab(stringResource(R.string.nav_settings), Icons.Filled.Settings),
     )
     val cs = MaterialTheme.colorScheme
 

@@ -1,8 +1,10 @@
 package dev.ronova.zephyrus.engine
 
 import android.app.Application
+import androidx.annotation.StringRes
 import com.yausername.youtubedl_android.YoutubeDL
 import com.yausername.youtubedl_android.YoutubeDLRequest
+import dev.ronova.zephyrus.R
 import dev.ronova.zephyrus.data.Database
 import dev.ronova.zephyrus.data.SessionStore
 import dev.ronova.zephyrus.data.SettingsStore
@@ -37,7 +39,8 @@ data class DlState(
     val log: List<String> = emptyList(),
     val finished: Boolean = false,
     val ok: Boolean = false,
-    val message: String = "",
+    @StringRes val messageRes: Int = 0,   // итог загрузки (строка из ресурсов)
+    val detail: String = "",              // подробность (например, текст ошибки yt-dlp); если есть — показывается вместо messageRes
     val lastFile: String? = null,     // content:// uri последнего готового файла
 ) {
     val idle: Boolean get() = current == null && queue.isEmpty()
@@ -111,7 +114,7 @@ class DownloadCenter(
             _state.update {
                 it.copy(
                     current = job, queue = snapshot, progress = ProgressUi(), log = emptyList(),
-                    finished = false, ok = false, message = "", lastFile = null,
+                    finished = false, ok = false, messageRes = 0, detail = "", lastFile = null,
                 )
             }
             process(job)
@@ -123,7 +126,7 @@ class DownloadCenter(
         cancelled = false
         val parser = ProgressParser(job.mode)
         if (!engine.awaitReady()) {
-            finish(job, false, engine.state.value.error ?: "Движок не готов", emptyList())
+            finish(job, false, R.string.msg_engine_not_ready, emptyList(), engine.state.value.error.orEmpty())
             return
         }
         val s = settings.state.value
@@ -141,7 +144,7 @@ class DownloadCenter(
             }
             YoutubeDL.getInstance().execute(request, pid) { _, _, line -> onLine(parser, line) }
         } catch (e: Exception) {
-            error = if (cancelled) "Загрузка отменена" else errorFrom(e, parser)
+            error = if (cancelled) "" else errorFrom(e, parser)
         } finally {
             currentPid = null
             cookie?.delete()
@@ -149,28 +152,30 @@ class DownloadCenter(
 
         if (cancelled) {
             work.deleteRecursively()
-            finish(job, false, "Загрузка отменена", emptyList())
+            finish(job, false, R.string.msg_cancelled, emptyList())
             return
         }
         var saveError: String? = null
         val files: List<SavedFile> = try {
             FileStore.export(app, work)
         } catch (e: Exception) {
-            saveError = e.message ?: "Не удалось сохранить файл"
+            saveError = e.message ?: "Could not save the file"
             emptyList()
         } finally {
             work.deleteRecursively()
         }
         when {
-            files.isNotEmpty() -> finish(job, true, if (error != null) "Загружено частично" else "Готово", files)
-            else -> finish(job, false, saveError ?: error ?: "yt-dlp не создал файл", emptyList())
+            files.isNotEmpty() ->
+                finish(job, true, if (error != null) R.string.msg_partial else R.string.result_done, files)
+            saveError != null -> finish(job, false, R.string.msg_save_failed, emptyList())
+            else -> finish(job, false, R.string.msg_no_file, emptyList(), error.orEmpty())
         }
     }
 
     private fun errorFrom(e: Exception, parser: ProgressParser): String {
         if (parser.lastError.isNotBlank()) return parser.lastError
         val fromMessage = e.message?.lineSequence()?.firstOrNull { it.startsWith("ERROR") }?.removePrefix("ERROR: ")
-        return fromMessage ?: e.message?.lineSequence()?.firstOrNull { it.isNotBlank() } ?: "Ошибка загрузки"
+        return fromMessage ?: e.message?.lineSequence()?.firstOrNull { it.isNotBlank() } ?: "Download failed"
     }
 
     private fun onLine(parser: ProgressParser, line: String) {
@@ -180,10 +185,14 @@ class DownloadCenter(
         }
     }
 
-    private fun finish(job: DlJob, ok: Boolean, message: String, files: List<SavedFile>) {
+    private fun finish(
+        job: DlJob, ok: Boolean, @StringRes messageRes: Int, files: List<SavedFile>, detail: String = "",
+    ) {
         val s = settings.state.value
         if (ok) {
-            val fmt = job.label.ifEmpty { YtDlpArgs.qualityLabel(job.mode, job.quality, s.videoContainer, s.audioFormat) }
+            val fmt = job.label.ifEmpty {
+                YtDlpArgs.qualityLabel(app, job.mode, job.quality, s.videoContainer, s.audioFormat)
+            }
             files.forEachIndexed { i, f ->
                 val historyId = job.historyId
                 if (historyId != null && i == 0) {
@@ -196,15 +205,15 @@ class DownloadCenter(
         _state.update {
             it.copy(
                 current = null,
-                progress = ProgressUi(percent = if (ok) 100f else 0f, indeterminate = false, status = message),
-                finished = true, ok = ok, message = message, lastFile = files.firstOrNull()?.uri,
+                progress = ProgressUi(percent = if (ok) 100f else 0f, indeterminate = false, statusRes = messageRes),
+                finished = true, ok = ok, messageRes = messageRes, detail = detail, lastFile = files.firstOrNull()?.uri,
             )
         }
-        if (s.notifications && message != "Загрузка отменена") {
+        if (s.notifications && messageRes != R.string.msg_cancelled) {
             Notifications.notifyDone(
                 app, job.id,
-                if (ok) "Загрузка завершена" else "Ошибка загрузки",
-                if (ok) files.firstOrNull()?.name ?: job.url else message,
+                app.getString(if (ok) R.string.notif_done_title else R.string.notif_error_title),
+                if (ok) files.firstOrNull()?.name ?: job.url else detail.ifEmpty { app.getString(messageRes) },
             )
         }
     }
@@ -227,7 +236,7 @@ class DownloadCenter(
         val cookie = prepareCookies(url, session, pid)
         val deferred = async(Dispatchers.IO) {
             runCatching {
-                if (!engine.awaitReady()) error(engine.state.value.error ?: "Движок не готов")
+                if (!engine.awaitReady()) error(engine.state.value.error ?: app.getString(R.string.msg_engine_not_ready))
                 val request = YoutubeDLRequest(url)
                 for (o in YtDlpArgs.infoOptions(playlist, cookie?.absolutePath, settings.state.value.proxy)) {
                     if (o.value == null) request.addOption(o.flag) else request.addOption(o.flag, o.value)

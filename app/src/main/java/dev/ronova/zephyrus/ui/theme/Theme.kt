@@ -17,16 +17,17 @@ import androidx.compose.ui.platform.LocalView
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.unit.dp
 import androidx.core.view.WindowCompat
+import dev.ronova.zephyrus.R
 import dev.ronova.zephyrus.data.Settings
 import kotlin.math.abs
 
 /** Акцентные оттенки для случая, когда динамические цвета выключены или недоступны (Android 11 и ниже). */
-val AccentNames: Map<String, String> = linkedMapOf(
-    "sakura" to "Сакура",
-    "sky" to "Небо",
-    "lavender" to "Лаванда",
-    "mint" to "Мята",
-    "peach" to "Персик",
+val AccentNames: Map<String, Int> = linkedMapOf(
+    "sakura" to R.string.accent_sakura,
+    "sky" to R.string.accent_sky,
+    "lavender" to R.string.accent_lavender,
+    "mint" to R.string.accent_mint,
+    "peach" to R.string.accent_peach,
 )
 
 // основной оттенок и «партнёрский» оттенок (для перелива), в градусах HSL

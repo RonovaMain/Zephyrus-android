@@ -54,7 +54,7 @@ object FileStore {
             val uri = resolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values) ?: continue
             try {
                 resolver.openOutputStream(uri)?.use { out -> file.inputStream().use { it.copyTo(out) } }
-                    ?: throw IllegalStateException("Не удалось открыть файл для записи")
+                    ?: throw IllegalStateException("Could not open the file for writing")
                 val done = ContentValues().apply { put(MediaStore.MediaColumns.IS_PENDING, 0) }
                 resolver.update(uri, done, null, null)
                 saved.add(SavedFile(file.name, titleOf(file.name), uri.toString()))

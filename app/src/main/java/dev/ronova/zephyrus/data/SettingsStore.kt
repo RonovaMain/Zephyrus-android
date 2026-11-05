@@ -23,6 +23,7 @@ data class Settings(
     val fragments: Int = 4,
     val proxy: String = "",
     val notifications: Boolean = true,
+    val autoUpdate: Boolean = true,            // автообновление yt-dlp: при первом запуске и ~раз в 2 дня
 )
 
 class SettingsStore(context: Context) {
@@ -64,6 +65,7 @@ class SettingsStore(context: Context) {
             fragments = prefs.getInt("fragments", d.fragments),
             proxy = s("proxy", d.proxy),
             notifications = prefs.getBoolean("notifications", d.notifications),
+            autoUpdate = prefs.getBoolean("autoUpdate", d.autoUpdate),
         )
     }
 
@@ -88,6 +90,7 @@ class SettingsStore(context: Context) {
             .putInt("fragments", s.fragments)
             .putString("proxy", s.proxy)
             .putBoolean("notifications", s.notifications)
+            .putBoolean("autoUpdate", s.autoUpdate)
             .apply()
     }
 }

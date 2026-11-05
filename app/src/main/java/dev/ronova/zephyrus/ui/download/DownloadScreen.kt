@@ -90,9 +90,13 @@ import dev.ronova.zephyrus.ui.components.ImageLoader
 import dev.ronova.zephyrus.ui.components.SectionCard
 import dev.ronova.zephyrus.ui.components.StatTile
 import dev.ronova.zephyrus.ui.components.SwitchRow
+import dev.ronova.zephyrus.ui.components.audioQualityOptions
+import dev.ronova.zephyrus.ui.components.videoQualityOptions
 import dev.ronova.zephyrus.ui.components.ZIcons
 import dev.ronova.zephyrus.ui.components.ZephyrusLogo
 import kotlinx.coroutines.delay
+import androidx.compose.ui.res.stringResource
+import dev.ronova.zephyrus.R
 
 private sealed interface InfoUi {
     data object Idle : InfoUi
@@ -113,6 +117,10 @@ fun DownloadScreen() {
     val profiles by c.db.profiles.collectAsStateWithLifecycle()
     val shared by c.sharedUrl.collectAsStateWithLifecycle()
     val clipboard = LocalClipboardManager.current
+    val infoFailedText = stringResource(R.string.info_failed)
+    val urlInvalidText = stringResource(R.string.url_invalid)
+    val videoQualities = videoQualityOptions()
+    val audioQualities = audioQualityOptions()
 
     var url by rememberSaveable { mutableStateOf("") }
     var info by remember { mutableStateOf<InfoUi>(InfoUi.Idle) }
@@ -145,7 +153,7 @@ fun DownloadScreen() {
         val result = c.downloads.fetchInfo(u, settings.playlist, session)
         info = result.fold(
             onSuccess = { InfoUi.Ready(it) },
-            onFailure = { InfoUi.Failed(it.message ?: "Не удалось получить информацию о ссылке") },
+            onFailure = { InfoUi.Failed(it.message ?: infoFailedText) },
         )
     }
 
@@ -166,14 +174,14 @@ fun DownloadScreen() {
     fun start() {
         val u = url.trim()
         if (!looksLikeUrl(u)) {
-            error = "Вставьте корректную ссылку, начинающуюся с http:// или https://"
+            error = urlInvalidText
             return
         }
         var quality = if (audioMode) settings.audioQuality else settings.videoQuality
         var label = ""
         if (manualOn) {
             val (spec, text) = YtDlpArgs.manualSpec(
-                audioMode, settings.videoContainer,
+                context, audioMode, settings.videoContainer,
                 videos.firstOrNull { it.id == videoSel }, audios.firstOrNull { it.id == audioSel }, showAudioPick,
             )
             quality = "fmt:$spec"
@@ -199,7 +207,7 @@ fun DownloadScreen() {
                 title = {
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                         ZephyrusLogo(36.dp)
-                        Text("Загрузка", fontWeight = FontWeight.Bold)
+                        Text(stringResource(R.string.nav_download), fontWeight = FontWeight.Bold)
                     }
                 },
                 scrollBehavior = scroll,
@@ -222,15 +230,19 @@ fun DownloadScreen() {
                         colors = CardDefaults.cardColors(containerColor = cs.errorContainer, contentColor = cs.onErrorContainer),
                     ) {
                         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                            Text("Движок не запустился", fontWeight = FontWeight.SemiBold)
+                            Text(stringResource(R.string.engine_failed), fontWeight = FontWeight.SemiBold)
                             Text(engine.error.orEmpty(), style = MaterialTheme.typography.bodySmall)
                         }
                     }
                 }
-            } else if (!engine.ready) {
+            } else if (!engine.ready || engine.updating) {
+                // первый запуск: движок стартует и сразу обновляет yt-dlp; загрузки начнутся после этого
                 item {
                     SectionCard {
-                        Text("Движок запускается…", style = MaterialTheme.typography.bodyMedium)
+                        Text(
+                            stringResource(if (!engine.ready) R.string.engine_starting else R.string.engine_updating),
+                            style = MaterialTheme.typography.bodyMedium,
+                        )
                         LinearProgressIndicator(Modifier.fillMaxWidth())
                     }
                 }
@@ -243,8 +255,8 @@ fun DownloadScreen() {
                         value = url,
                         onValueChange = { url = it },
                         modifier = Modifier.fillMaxWidth(),
-                        label = { Text("Ссылка") },
-                        placeholder = { Text("Видео, плейлист или трек") },
+                        label = { Text(stringResource(R.string.url_label)) },
+                        placeholder = { Text(stringResource(R.string.url_hint)) },
                         singleLine = true,
                         shape = RoundedCornerShape(20.dp),
                         trailingIcon = {
@@ -252,9 +264,9 @@ fun DownloadScreen() {
                                 IconButton(onClick = {
                                     val text = clipboard.getText()?.text.orEmpty()
                                     if (text.isNotBlank()) url = extractUrl(text) ?: text.trim()
-                                }) { Icon(ZIcons.Paste, contentDescription = "Вставить") }
+                                }) { Icon(ZIcons.Paste, contentDescription = stringResource(R.string.paste)) }
                             } else {
-                                IconButton(onClick = { url = "" }) { Icon(Icons.Filled.Close, contentDescription = "Очистить") }
+                                IconButton(onClick = { url = "" }) { Icon(Icons.Filled.Close, contentDescription = stringResource(R.string.clear)) }
                             }
                         },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri, imeAction = ImeAction.Go),
@@ -269,8 +281,8 @@ fun DownloadScreen() {
                     // видео или аудио
                     SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
                         val modes = listOf(
-                            "video" to "Видео ${settings.videoContainer.uppercase()}",
-                            "audio" to "Аудио ${settings.audioFormat.uppercase()}",
+                            "video" to stringResource(R.string.mode_video, settings.videoContainer.uppercase()),
+                            "audio" to stringResource(R.string.mode_audio, settings.audioFormat.uppercase()),
                         )
                         modes.forEachIndexed { i, (mode, label) ->
                             SegmentedButton(
@@ -287,25 +299,25 @@ fun DownloadScreen() {
                             selected = !manualOn,
                             onClick = { manual = false },
                             shape = SegmentedButtonDefaults.itemShape(index = 0, count = 2),
-                        ) { Text("Лучшее доступное") }
+                        ) { Text(stringResource(R.string.qmode_best)) }
                         SegmentedButton(
                             selected = manualOn,
                             onClick = { manual = true },
                             enabled = manualAvailable,
                             shape = SegmentedButtonDefaults.itemShape(index = 1, count = 2),
-                        ) { Text("Выбрать вручную") }
+                        ) { Text(stringResource(R.string.qmode_manual)) }
                     }
                     if (!manualAvailable) {
                         Text(
-                            "Ручной выбор видео и звука появится после анализа ссылки.",
+                            stringResource(R.string.manual_hint),
                             style = MaterialTheme.typography.bodySmall, color = cs.onSurfaceVariant,
                         )
                     }
 
                     if (!manualOn) {
                         DropdownField(
-                            label = "Качество (максимум)",
-                            options = if (audioMode) YtDlpArgs.AUDIO_QUALITIES else YtDlpArgs.VIDEO_QUALITIES,
+                            label = stringResource(R.string.quality_max),
+                            options = if (audioMode) audioQualities else videoQualities,
                             selected = if (audioMode) settings.audioQuality else settings.videoQuality,
                             onSelect = { v ->
                                 c.settings.update { if (audioMode) copy(audioQuality = v) else copy(videoQuality = v) }
@@ -314,7 +326,7 @@ fun DownloadScreen() {
                     } else {
                         if (!audioMode) {
                             DropdownField(
-                                label = "Качество видео",
+                                label = stringResource(R.string.quality_video),
                                 options = videos.map { it.label to it.id },
                                 selected = videoSel,
                                 onSelect = { videoSel = it },
@@ -322,38 +334,37 @@ fun DownloadScreen() {
                         }
                         if (showAudioPick) {
                             DropdownField(
-                                label = "Качество звука",
-                                options = listOf("Лучший звук (авто)" to "") + audios.map { it.label to it.id },
+                                label = stringResource(R.string.quality_audio),
+                                options = listOf(stringResource(R.string.quality_audio_auto) to "") + audios.map { it.label to it.id },
                                 selected = audioSel,
                                 onSelect = { audioSel = it },
                             )
                         }
                         Text(
                             when {
-                                audioMode -> "Выбранная дорожка будет скачана и конвертирована в ${settings.audioFormat.uppercase()} через FFmpeg."
-                                muxedOnly -> "Для этого сайта доступны только готовые форматы — звук уже внутри видео."
-                                else -> "Видео и звук скачиваются отдельно и склеиваются FFmpeg в один файл ${settings.videoContainer.uppercase()}. " +
-                                    "Если лучшее качество плохое — выберите строку ниже."
+                                audioMode -> stringResource(R.string.manual_note_audio, settings.audioFormat.uppercase())
+                                muxedOnly -> stringResource(R.string.manual_note_muxed)
+                                else -> stringResource(R.string.manual_note_merge, settings.videoContainer.uppercase())
                             },
                             style = MaterialTheme.typography.bodySmall, color = cs.onSurfaceVariant,
                         )
                     }
 
                     DropdownField(
-                        label = "Сессия (cookies)",
-                        options = listOf("Авто — по сайту ссылки" to "auto", "Без cookies" to "none") +
+                        label = stringResource(R.string.session_label),
+                        options = listOf(stringResource(R.string.session_auto) to "auto", stringResource(R.string.session_none) to "none") +
                             profiles.map { "${siteLabel(it.site)} · ${it.name}" to it.id },
                         selected = session,
                         onSelect = { session = it },
                     )
                     SwitchRow(
-                        title = "Плейлист целиком",
-                        description = "Скачать все видео из списка",
+                        title = stringResource(R.string.playlist_title),
+                        description = stringResource(R.string.playlist_desc),
                         checked = settings.playlist,
                         onChecked = { v -> c.settings.update { copy(playlist = v) } },
                     )
                     GradientButton(
-                        text = "Скачать",
+                        text = stringResource(R.string.start_download),
                         onClick = { start() },
                         enabled = engine.ready,
                         icon = ZIcons.Download,
@@ -371,15 +382,15 @@ fun DownloadScreen() {
             // очередь
             if (dl.queue.isNotEmpty()) {
                 item {
-                    SectionCard(title = "В очереди: ${dl.queue.size}") {
+                    SectionCard(title = stringResource(R.string.queue_title, dl.queue.size)) {
                         dl.queue.forEach { job ->
                             Text(
-                                (if (job.mode == "audio") "Аудио · " else "Видео · ") + job.url,
+                                (if (job.mode == "audio") stringResource(R.string.queue_audio) else stringResource(R.string.queue_video)) + " · " + job.url,
                                 maxLines = 1, overflow = TextOverflow.Ellipsis,
                                 style = MaterialTheme.typography.bodyMedium,
                             )
                         }
-                        TextButton(onClick = { c.downloads.clearQueue() }) { Text("Очистить очередь") }
+                        TextButton(onClick = { c.downloads.clearQueue() }) { Text(stringResource(R.string.queue_clear)) }
                     }
                 }
             }
@@ -393,7 +404,7 @@ private fun PreviewCard(info: InfoUi) {
     when (info) {
         InfoUi.Idle -> Unit
         InfoUi.Loading -> Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text("Получаем информацию о ссылке…", style = MaterialTheme.typography.bodyMedium, color = cs.onSurfaceVariant)
+            Text(stringResource(R.string.info_loading), style = MaterialTheme.typography.bodyMedium, color = cs.onSurfaceVariant)
             LinearProgressIndicator(Modifier.fillMaxWidth())
         }
         is InfoUi.Failed -> Text(info.message, color = cs.error, style = MaterialTheme.typography.bodyMedium, maxLines = 3, overflow = TextOverflow.Ellipsis)
@@ -416,10 +427,11 @@ private fun PreviewCard(info: InfoUi) {
                         }
                     }
                     Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                        Text(data.title, maxLines = 3, overflow = TextOverflow.Ellipsis, fontWeight = FontWeight.SemiBold, style = MaterialTheme.typography.bodyLarge)
+                        Text(data.title.ifEmpty { stringResource(R.string.untitled) }, maxLines = 3, overflow = TextOverflow.Ellipsis, fontWeight = FontWeight.SemiBold, style = MaterialTheme.typography.bodyLarge)
+                        val playlistMeta = stringResource(R.string.playlist_meta, data.count)
                         val meta = buildList {
                             if (data.uploader.isNotEmpty()) add(data.uploader)
-                            if (data.isPlaylist) add("плейлист · ${data.count} видео")
+                            if (data.isPlaylist) add(playlistMeta)
                             else formatDuration(data.durationSec).takeIf { it.isNotEmpty() }?.let { add(it) }
                         }.joinToString("  •  ")
                         if (meta.isNotEmpty()) Text(meta, style = MaterialTheme.typography.bodySmall, color = cs.onSurfaceVariant, maxLines = 2, overflow = TextOverflow.Ellipsis)
@@ -441,12 +453,12 @@ private fun ProgressCard(dl: DlState, showLog: Boolean, onToggleLog: () -> Unit)
     SectionCard {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(
-                if (dl.finished && dl.current == null) (if (dl.ok) "Готово" else "Ошибка") else p.status,
+                if (dl.finished && dl.current == null) (if (dl.ok) stringResource(R.string.done) else stringResource(R.string.result_error)) else stringResource(p.statusRes),
                 style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold,
                 modifier = Modifier.weight(1f), maxLines = 2, overflow = TextOverflow.Ellipsis,
             )
             if (p.itemCount > 1) {
-                Text("Элемент ${p.item} из ${p.itemCount}", style = MaterialTheme.typography.labelMedium, color = cs.onSurfaceVariant)
+                Text(stringResource(R.string.item_of, p.item, p.itemCount), style = MaterialTheme.typography.labelMedium, color = cs.onSurfaceVariant)
             }
         }
         if (dl.current != null && p.indeterminate) {
@@ -459,19 +471,20 @@ private fun ProgressCard(dl: DlState, showLog: Boolean, onToggleLog: () -> Unit)
             )
         }
         Row(Modifier.fillMaxWidth()) {
-            StatTile("Прогресс", if (dl.current == null && !dl.ok) "—" else "%.1f%%".format(p.percent), Modifier.weight(1f))
-            StatTile("Скорость", formatSpeed(p.speed), Modifier.weight(1f))
-            StatTile("Осталось", formatEta(p.eta), Modifier.weight(1f))
-            StatTile("Размер", formatSize(p.size), Modifier.weight(1f))
+            StatTile(stringResource(R.string.stat_progress), if (dl.current == null && !dl.ok) "—" else "%.1f%%".format(p.percent), Modifier.weight(1f))
+            StatTile(stringResource(R.string.stat_speed), formatSpeed(p.speed), Modifier.weight(1f))
+            StatTile(stringResource(R.string.stat_eta), formatEta(p.eta), Modifier.weight(1f))
+            StatTile(stringResource(R.string.stat_size), formatSize(p.size), Modifier.weight(1f))
         }
-        if (dl.finished && dl.current == null && dl.message.isNotEmpty()) {
-            Text(dl.message, color = if (dl.ok) cs.primary else cs.error, style = MaterialTheme.typography.bodyMedium)
+        val messageText = if (dl.detail.isNotEmpty()) dl.detail else if (dl.messageRes != 0) stringResource(dl.messageRes) else ""
+        if (dl.finished && dl.current == null && messageText.isNotEmpty()) {
+            Text(messageText, color = if (dl.ok) cs.primary else cs.error, style = MaterialTheme.typography.bodyMedium)
         }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-            TextButton(onClick = onToggleLog) { Text(if (showLog) "Скрыть журнал" else "Журнал") }
+            TextButton(onClick = onToggleLog) { Text(if (showLog) stringResource(R.string.log_hide) else stringResource(R.string.log_show)) }
             Box(Modifier.weight(1f))
             if (dl.current != null) {
-                OutlinedButton(onClick = { c.downloads.cancelCurrent() }) { Text("Отмена") }
+                OutlinedButton(onClick = { c.downloads.cancelCurrent() }) { Text(stringResource(R.string.cancel)) }
             } else if (dl.ok && dl.lastFile != null) {
                 FilledTonalButton(onClick = {
                     try {
@@ -479,7 +492,7 @@ private fun ProgressCard(dl: DlState, showLog: Boolean, onToggleLog: () -> Unit)
                     } catch (e: Exception) {
                         // нет приложения для этого типа файла
                     }
-                }) { Text("Открыть") }
+                }) { Text(stringResource(R.string.open)) }
             }
         }
         AnimatedVisibility(visible = showLog) {

@@ -79,6 +79,8 @@ import dev.ronova.zephyrus.ui.components.DropdownField
 import dev.ronova.zephyrus.ui.components.Pill
 import dev.ronova.zephyrus.ui.components.SectionCard
 import dev.ronova.zephyrus.ui.components.SiteBadge
+import androidx.compose.ui.res.stringResource
+import dev.ronova.zephyrus.R
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -101,7 +103,7 @@ fun SessionsScreen() {
                 val text = context.contentResolver.openInputStream(uri)?.bufferedReader()?.use { it.readText() }
                 if (text != null) importText = text
             } catch (e: Exception) {
-                Toast.makeText(context, "Не удалось прочитать файл", Toast.LENGTH_SHORT).show()
+                Toast.makeText(context, context.getString(R.string.file_read_failed), Toast.LENGTH_SHORT).show()
             }
         }
     }
@@ -113,7 +115,7 @@ fun SessionsScreen() {
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
         topBar = {
             LargeTopAppBar(
-                title = { Text("Сессии", fontWeight = FontWeight.Bold) },
+                title = { Text(stringResource(R.string.nav_sessions), fontWeight = FontWeight.Bold) },
                 scrollBehavior = scroll,
                 colors = TopAppBarDefaults.largeTopAppBarColors(
                     containerColor = Color.Transparent, scrolledContainerColor = cs.surfaceContainer,
@@ -130,8 +132,7 @@ fun SessionsScreen() {
         ) {
             item(span = { GridItemSpan(maxLineSpan) }) {
                 Text(
-                    "Войдите в аккаунт на сайте — Zephyrus сохранит cookies в зашифрованный профиль и подставит их в yt-dlp " +
-                        "автоматически (для закрытых, возрастных и платных видео).",
+                    stringResource(R.string.sessions_intro),
                     style = MaterialTheme.typography.bodyMedium, color = cs.onSurfaceVariant,
                     modifier = Modifier.padding(bottom = 4.dp),
                 )
@@ -140,28 +141,28 @@ fun SessionsScreen() {
                 val mine = profiles.filter { it.site == site.key }
                 SiteTile(
                     name = site.name, domain = site.iconDomain, letter = site.letter, color = site.color,
-                    status = if (mine.isEmpty()) "нет профилей" else "профилей: ${mine.size}",
+                    status = if (mine.isEmpty()) stringResource(R.string.no_profiles) else stringResource(R.string.profiles_count, mine.size),
                     active = mine.any { it.active },
                     onClick = { loginSite = site },
                 )
             }
             item {
                 SiteTile(
-                    name = "Другой сайт", domain = "", letter = "+", color = 0xFF9E9E9E,
-                    status = "любой адрес", active = false, onClick = { askCustom = true },
+                    name = stringResource(R.string.other_site), domain = "", letter = "+", color = 0xFF9E9E9E,
+                    status = stringResource(R.string.any_address), active = false, onClick = { askCustom = true },
                 )
             }
 
             item(span = { GridItemSpan(maxLineSpan) }) {
                 Row(Modifier.padding(top = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Text("Мои профили", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
-                    OutlinedButton(onClick = { picker.launch(arrayOf("text/plain", "*/*")) }) { Text("Импорт cookies.txt") }
+                    Text(stringResource(R.string.my_profiles), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
+                    OutlinedButton(onClick = { picker.launch(arrayOf("text/plain", "*/*")) }) { Text(stringResource(R.string.import_cookies)) }
                 }
             }
             if (profiles.isEmpty()) {
                 item(span = { GridItemSpan(maxLineSpan) }) {
                     Text(
-                        "Профилей пока нет. Нажмите на плитку сайта, чтобы войти в аккаунт.",
+                        stringResource(R.string.profiles_empty),
                         style = MaterialTheme.typography.bodyMedium, color = cs.onSurfaceVariant,
                     )
                 }
@@ -174,8 +175,7 @@ fun SessionsScreen() {
             }
             item(span = { GridItemSpan(maxLineSpan) }) {
                 Text(
-                    "Если Google или YouTube не пускает во встроенный браузер — экспортируйте cookies.txt расширением " +
-                        "браузера и используйте «Импорт».",
+                    stringResource(R.string.sessions_note),
                     style = MaterialTheme.typography.bodySmall, color = cs.onSurfaceVariant,
                     modifier = Modifier.padding(top = 4.dp),
                 )
@@ -197,20 +197,21 @@ fun SessionsScreen() {
 
     // ---------- имя нового профиля ----------
     pending?.let { (site, cookies) ->
-        var name by remember { mutableStateOf("Профиль ${profiles.count { it.site == site.key } + 1}") }
+        val defaultName = stringResource(R.string.profile_default_name, profiles.count { it.site == site.key } + 1)
+        var name by remember { mutableStateOf(defaultName) }
         AlertDialog(
             onDismissRequest = { pending = null },
-            title = { Text("Название профиля") },
-            text = { OutlinedTextField(value = name, onValueChange = { name = it }, singleLine = true, label = { Text("Название") }) },
+            title = { Text(stringResource(R.string.profile_name_title)) },
+            text = { OutlinedTextField(value = name, onValueChange = { name = it }, singleLine = true, label = { Text(stringResource(R.string.profile_name)) }) },
             confirmButton = {
                 TextButton(onClick = {
                     if (name.isNotBlank()) {
                         c.sessions.add(site.key, name.trim(), cookies)
                         pending = null
                     }
-                }) { Text("Сохранить") }
+                }) { Text(stringResource(R.string.save)) }
             },
-            dismissButton = { TextButton(onClick = { pending = null }) { Text("Отмена") } },
+            dismissButton = { TextButton(onClick = { pending = null }) { Text(stringResource(R.string.cancel)) } },
         )
     }
 
@@ -219,11 +220,11 @@ fun SessionsScreen() {
         var address by remember { mutableStateOf("") }
         AlertDialog(
             onDismissRequest = { askCustom = false },
-            title = { Text("Другой сайт") },
+            title = { Text(stringResource(R.string.other_site)) },
             text = {
                 OutlinedTextField(
                     value = address, onValueChange = { address = it }, singleLine = true,
-                    label = { Text("Адрес страницы входа") }, placeholder = { Text("https://example.com/login") },
+                    label = { Text(stringResource(R.string.login_address)) }, placeholder = { Text("https://example.com/login") },
                 )
             },
             confirmButton = {
@@ -233,16 +234,16 @@ fun SessionsScreen() {
                         if (!u.contains("://")) u = "https://$u"
                         val host = hostOf(u)
                         if (host.isEmpty()) {
-                            Toast.makeText(context, "Не удалось определить домен", Toast.LENGTH_SHORT).show()
+                            Toast.makeText(context, context.getString(R.string.domain_unknown), Toast.LENGTH_SHORT).show()
                         } else {
                             val base = baseDomain(host)
                             loginSite = Site("custom:$base", host, u, listOf(base), 0xFF9E9E9E, "+", extraCookieUrls = listOf(u))
                             askCustom = false
                         }
                     }
-                }) { Text("Открыть") }
+                }) { Text(stringResource(R.string.open)) }
             },
-            dismissButton = { TextButton(onClick = { askCustom = false }) { Text("Отмена") } },
+            dismissButton = { TextButton(onClick = { askCustom = false }) { Text(stringResource(R.string.cancel)) } },
         )
     }
 
@@ -251,17 +252,17 @@ fun SessionsScreen() {
         var name by remember { mutableStateOf(p.name) }
         AlertDialog(
             onDismissRequest = { renaming = null },
-            title = { Text("Переименовать") },
-            text = { OutlinedTextField(value = name, onValueChange = { name = it }, singleLine = true, label = { Text("Название") }) },
+            title = { Text(stringResource(R.string.rename)) },
+            text = { OutlinedTextField(value = name, onValueChange = { name = it }, singleLine = true, label = { Text(stringResource(R.string.profile_name)) }) },
             confirmButton = {
                 TextButton(onClick = {
                     if (name.isNotBlank()) {
                         c.sessions.rename(p.id, name.trim())
                         renaming = null
                     }
-                }) { Text("Готово") }
+                }) { Text(stringResource(R.string.done)) }
             },
-            dismissButton = { TextButton(onClick = { renaming = null }) { Text("Отмена") } },
+            dismissButton = { TextButton(onClick = { renaming = null }) { Text(stringResource(R.string.cancel)) } },
         )
     }
 
@@ -269,15 +270,15 @@ fun SessionsScreen() {
     deleting?.let { p ->
         AlertDialog(
             onDismissRequest = { deleting = null },
-            title = { Text("Удалить профиль") },
-            text = { Text("Удалить профиль «${p.name}» вместе с сохранёнными cookies?") },
+            title = { Text(stringResource(R.string.delete_profile_title)) },
+            text = { Text(stringResource(R.string.delete_profile_text, p.name)) },
             confirmButton = {
                 TextButton(onClick = {
                     c.sessions.delete(p.id)
                     deleting = null
-                }) { Text("Удалить") }
+                }) { Text(stringResource(R.string.delete)) }
             },
-            dismissButton = { TextButton(onClick = { deleting = null }) { Text("Отмена") } },
+            dismissButton = { TextButton(onClick = { deleting = null }) { Text(stringResource(R.string.cancel)) } },
         )
     }
 
@@ -289,8 +290,10 @@ fun SessionsScreen() {
                 try {
                     c.sessions.importNetscape(siteKey, name, text, hosts)
                     importText = null
+                } catch (e: IllegalArgumentException) {
+                    Toast.makeText(context, context.getString(R.string.import_no_cookies), Toast.LENGTH_LONG).show()
                 } catch (e: Exception) {
-                    Toast.makeText(context, e.message ?: "Не удалось импортировать", Toast.LENGTH_LONG).show()
+                    Toast.makeText(context, context.getString(R.string.import_failed), Toast.LENGTH_LONG).show()
                 }
             },
         )
@@ -341,13 +344,13 @@ private fun ProfileCard(p: ProfileRow, onActivate: () -> Unit, onRename: () -> U
                     style = MaterialTheme.typography.bodySmall, color = cs.onSurfaceVariant, maxLines = 2,
                 )
                 if (p.active) {
-                    Pill("Активен", Modifier.padding(top = 6.dp))
+                    Pill(stringResource(R.string.active), Modifier.padding(top = 6.dp))
                 } else {
-                    TextButton(onClick = onActivate, contentPadding = PaddingValues(horizontal = 0.dp)) { Text("Сделать активным") }
+                    TextButton(onClick = onActivate, contentPadding = PaddingValues(horizontal = 0.dp)) { Text(stringResource(R.string.make_active)) }
                 }
             }
-            IconButton(onClick = onRename) { Icon(Icons.Filled.Edit, contentDescription = "Переименовать") }
-            IconButton(onClick = onDelete) { Icon(Icons.Filled.Delete, contentDescription = "Удалить", tint = cs.error) }
+            IconButton(onClick = onRename) { Icon(Icons.Filled.Edit, contentDescription = stringResource(R.string.rename)) }
+            IconButton(onClick = onDelete) { Icon(Icons.Filled.Delete, contentDescription = stringResource(R.string.delete), tint = cs.error) }
         }
     }
 }
@@ -356,21 +359,22 @@ private fun ProfileCard(p: ProfileRow, onActivate: () -> Unit, onRename: () -> U
 private fun ImportDialog(onDismiss: () -> Unit, onConfirm: (siteKey: String, name: String, hosts: List<String>?) -> Unit) {
     var site by remember { mutableStateOf(SITES.first().key) }
     var domain by remember { mutableStateOf("") }
-    var name by remember { mutableStateOf("Импортированный профиль") }
-    val options = SITES.map { it.name to it.key } + ("Другой сайт…" to "custom")
+    val defaultName = stringResource(R.string.imported_profile)
+    var name by remember { mutableStateOf(defaultName) }
+    val options = SITES.map { it.name to it.key } + (stringResource(R.string.other_site_dots) to "custom")
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Импорт cookies.txt") },
+        title = { Text(stringResource(R.string.import_cookies)) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                DropdownField("Сайт", options, site, { site = it })
+                DropdownField(stringResource(R.string.site), options, site, { site = it })
                 if (site == "custom") {
                     OutlinedTextField(
                         value = domain, onValueChange = { domain = it }, singleLine = true,
-                        label = { Text("Домен") }, placeholder = { Text("example.com") },
+                        label = { Text(stringResource(R.string.domain)) }, placeholder = { Text("example.com") },
                     )
                 }
-                OutlinedTextField(value = name, onValueChange = { name = it }, singleLine = true, label = { Text("Название профиля") })
+                OutlinedTextField(value = name, onValueChange = { name = it }, singleLine = true, label = { Text(stringResource(R.string.profile_name_title)) })
             }
         },
         confirmButton = {
@@ -382,9 +386,9 @@ private fun ImportDialog(onDismiss: () -> Unit, onConfirm: (siteKey: String, nam
                 } else {
                     onConfirm(site, name.trim(), null)
                 }
-            }) { Text("Импортировать") }
+            }) { Text(stringResource(R.string.import_action)) }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Отмена") } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) } },
     )
 }
 
@@ -423,20 +427,20 @@ private fun LoginDialog(site: Site, onDismiss: () -> Unit, onSaved: (List<Cookie
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(4.dp),
                 ) {
-                    IconButton(onClick = onDismiss) { Icon(Icons.Filled.Close, contentDescription = "Закрыть") }
+                    IconButton(onClick = onDismiss) { Icon(Icons.Filled.Close, contentDescription = stringResource(R.string.close)) }
                     IconButton(onClick = { if (webView.canGoBack()) webView.goBack() }) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Назад")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.back))
                     }
-                    Text("Вход — ${site.name}", modifier = Modifier.weight(1f), fontWeight = FontWeight.SemiBold, maxLines = 1)
+                    Text(stringResource(R.string.login_title, site.name), modifier = Modifier.weight(1f), fontWeight = FontWeight.SemiBold, maxLines = 1)
                     FilledTonalButton(onClick = {
                         CookieManager.getInstance().flush()
                         val cookies = collectCookies(site.cookieUrls + listOfNotNull(webView.url))
                         if (cookies.isEmpty()) {
-                            Toast.makeText(context, "Пока нет cookies — сначала войдите в аккаунт", Toast.LENGTH_SHORT).show()
+                            Toast.makeText(context, context.getString(R.string.no_cookies_yet), Toast.LENGTH_SHORT).show()
                         } else {
                             onSaved(cookies)
                         }
-                    }) { Text("Сохранить сессию") }
+                    }) { Text(stringResource(R.string.save_session)) }
                 }
                 AndroidView(factory = { webView }, modifier = Modifier.fillMaxSize())
             }

@@ -5,6 +5,8 @@
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
+    <!-- нужно, чтобы расписание автообновления yt-dlp переживало перезагрузку телефона -->
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
 
     <application
         android:name=".ZephyrusApp"
@@ -13,6 +15,7 @@
         android:enableOnBackInvokedCallback="true"
         android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"
+        android:localeConfig="@xml/locales_config"
         android:roundIcon="@mipmap/ic_launcher"
         android:supportsRtl="true"
         android:theme="@style/Theme.Zephyrus">
@@ -38,5 +41,11 @@
             android:name=".engine.DownloadService"
             android:exported="false"
             android:foregroundServiceType="dataSync" />
+
+        <!-- фоновая проверка обновлений yt-dlp (JobScheduler) -->
+        <service
+            android:name=".engine.UpdateJobService"
+            android:exported="true"
+            android:permission="android.permission.BIND_JOB_SERVICE" />
     </application>
 </manifest>

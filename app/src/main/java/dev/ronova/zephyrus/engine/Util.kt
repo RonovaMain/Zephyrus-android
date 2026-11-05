@@ -13,7 +13,7 @@ fun extractUrl(text: String?): String? = text?.let { URL_IN_TEXT_RE.find(it)?.va
 
 fun formatSize(bytes: Double?): String {
     if (bytes == null || bytes <= 0) return "—"
-    val units = arrayOf("Б", "КБ", "МБ", "ГБ", "ТБ")
+    val units = arrayOf("B", "KB", "MB", "GB", "TB")
     var v = bytes
     var i = 0
     while (v >= 1024 && i < units.size - 1) {
@@ -24,7 +24,7 @@ fun formatSize(bytes: Double?): String {
 }
 
 fun formatSpeed(bytesPerSec: Double?): String =
-    if (bytesPerSec == null || bytesPerSec <= 0) "—" else formatSize(bytesPerSec) + "/с"
+    if (bytesPerSec == null || bytesPerSec <= 0) "—" else formatSize(bytesPerSec) + "/s"
 
 fun formatEta(seconds: Double?): String {
     if (seconds == null || seconds < 0) return "—"

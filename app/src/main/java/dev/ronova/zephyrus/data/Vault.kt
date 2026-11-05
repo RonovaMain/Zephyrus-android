@@ -38,7 +38,7 @@ object Vault {
     }
 
     fun decrypt(blob: ByteArray): ByteArray {
-        require(blob.size > IV_SIZE) { "Файл профиля повреждён" }
+        require(blob.size > IV_SIZE) { "Profile file is corrupted" }
         val cipher = Cipher.getInstance(TRANSFORMATION)
         cipher.init(Cipher.DECRYPT_MODE, key(), GCMParameterSpec(128, blob, 0, IV_SIZE))
         return cipher.doFinal(blob, IV_SIZE, blob.size - IV_SIZE)

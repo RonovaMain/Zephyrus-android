@@ -8,6 +8,7 @@ import dev.ronova.zephyrus.data.SettingsStore
 import dev.ronova.zephyrus.engine.DownloadCenter
 import dev.ronova.zephyrus.engine.Engine
 import dev.ronova.zephyrus.engine.Notifications
+import dev.ronova.zephyrus.engine.UpdateScheduler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -26,7 +27,7 @@ class AppContainer(val app: Application) {
     val settings = SettingsStore(app)
     val db = Database(app)
     val sessions = SessionStore(app, db)
-    val engine = Engine(app, scope)
+    val engine = Engine(app, scope, settings)
     val downloads = DownloadCenter(app, scope, settings, engine, sessions, db)
 
     /** Ссылка, пришедшая через «Поделиться». */
@@ -35,13 +36,22 @@ class AppContainer(val app: Application) {
     fun start() {
         Notifications.ensureChannels(app)
         db.refresh()
+        // во время загрузки yt-dlp обновлять нельзя
+        engine.isBusy = { !downloads.state.value.idle }
         engine.start()
+        // фоновая проверка обновлений примерно раз в 2 дня
+        UpdateScheduler.sync(app, settings.state.value.autoUpdate)
     }
 }
 
 class ZephyrusApp : Application() {
     lateinit var container: AppContainer
         private set
+
+    override fun attachBaseContext(base: Context) {
+        // Android 10–12: применяем язык, выбранный в настройках приложения
+        super.attachBaseContext(AppLocale.wrap(base))
+    }
 
     override fun onCreate() {
         super.onCreate()

@@ -165,7 +165,7 @@ class SessionStore(context: Context, private val db: Database) {
 
     fun importNetscape(site: String, name: String, text: String, hosts: List<String>? = null): String {
         val cookies = parseNetscape(text)
-        require(cookies.isNotEmpty()) { "В файле не найдено ни одной cookie в формате Netscape" }
+        require(cookies.isNotEmpty()) { "No cookies in Netscape format found" }
         val resolved = hosts ?: if (siteByKey(site) == null) cookies.map { baseDomain(it.domain.trimStart('.')) } else null
         return add(site, name, cookies, resolved)
     }

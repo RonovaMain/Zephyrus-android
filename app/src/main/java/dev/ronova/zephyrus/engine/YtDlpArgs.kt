@@ -1,5 +1,8 @@
 package dev.ronova.zephyrus.engine
 
+import android.content.Context
+import androidx.annotation.StringRes
+import dev.ronova.zephyrus.R
 import dev.ronova.zephyrus.data.Settings
 import org.json.JSONArray
 import org.json.JSONObject
@@ -26,7 +29,7 @@ data class ProgressUi(
     val speed: Double? = null,
     val eta: Double? = null,
     val size: Double? = null,
-    val status: String = "Подготовка…",
+    @StringRes val statusRes: Int = R.string.status_preparing,
     val item: Int = 1,
     val itemCount: Int = 1,
 )
@@ -38,7 +41,7 @@ class ProgressParser(private val mode: String) {
     private var speed: Double? = null
     private var eta: Double? = null
     private var size: Double? = null
-    private var status = "Подготовка…"
+    private var statusRes = R.string.status_preparing
     private var item = 1
     private var itemCount = 1
     private var streamsDone = 0
@@ -46,7 +49,7 @@ class ProgressParser(private val mode: String) {
     var lastError: String = ""
         private set
 
-    fun snapshot() = ProgressUi(percent, indeterminate, speed, eta, size, status, item, itemCount)
+    fun snapshot() = ProgressUi(percent, indeterminate, speed, eta, size, statusRes, item, itemCount)
 
     /** Возвращает true, если строку стоит показать в журнале. */
     fun feed(raw: String): Boolean {
@@ -61,7 +64,7 @@ class ProgressParser(private val mode: String) {
             val name = PP_NAMES[m.groupValues[1]]
             if (name != null) {
                 indeterminate = true
-                status = name
+                statusRes = name
                 speed = null
                 eta = null
             }
@@ -76,7 +79,7 @@ class ProgressParser(private val mode: String) {
             percent = overall(0.0)
         }
         ERROR_RE.find(line)?.let { lastError = it.groupValues[1] }
-        if (line.contains("has already been downloaded")) status = "Файл уже скачан"
+        if (line.contains("has already been downloaded")) statusRes = R.string.status_already
         return true
     }
 
@@ -98,10 +101,10 @@ class ProgressParser(private val mode: String) {
         val hasV = hasCodec(g[9])
         val hasA = hasCodec(g[10])
         if (expectedStreams == null) expectedStreams = if (mode == "audio" || (hasV && hasA)) 1 else 2
-        status = when {
-            mode == "audio" || (hasA && !hasV) -> "Загрузка аудио"
-            hasV && !hasA -> "Загрузка видео"
-            else -> "Загрузка"
+        statusRes = when {
+            mode == "audio" || (hasA && !hasV) -> R.string.status_downloading_audio
+            hasV && !hasA -> R.string.status_downloading_video
+            else -> R.string.status_downloading
         }
         val finished = g[8] == "finished"
         if (finished) frac = 1.0
@@ -132,17 +135,17 @@ class ProgressParser(private val mode: String) {
         private val ERROR_RE = Regex("""^ERROR: (.+)$""")
 
         private val PP_NAMES = mapOf(
-            "Merger" to "Объединение видео и аудио",
-            "ExtractAudio" to "Конвертация в аудио",
-            "VideoConvertor" to "Конвертация видео",
-            "VideoRemuxer" to "Преобразование контейнера",
-            "EmbedThumbnail" to "Встраивание обложки",
-            "ThumbnailsConvertor" to "Подготовка обложки",
-            "Metadata" to "Запись метаданных",
-            "FFmpegMetadata" to "Запись метаданных",
-            "EmbedSubtitle" to "Встраивание субтитров",
-            "ModifyChapters" to "Вырезание сегментов SponsorBlock",
-            "MoveFiles" to "Завершение",
+            "Merger" to R.string.pp_merge,
+            "ExtractAudio" to R.string.pp_extract_audio,
+            "VideoConvertor" to R.string.pp_convert_video,
+            "VideoRemuxer" to R.string.pp_remux,
+            "EmbedThumbnail" to R.string.pp_embed_thumb,
+            "ThumbnailsConvertor" to R.string.pp_thumb_prepare,
+            "Metadata" to R.string.pp_metadata,
+            "FFmpegMetadata" to R.string.pp_metadata,
+            "EmbedSubtitle" to R.string.pp_embed_subs,
+            "ModifyChapters" to R.string.pp_sponsorblock,
+            "MoveFiles" to R.string.pp_finalize,
         )
     }
 }
@@ -155,26 +158,24 @@ object YtDlpArgs {
             "|%(progress.speed)s|%(progress.eta)s|%(progress.fragment_index)s|%(progress.fragment_count)s" +
             "|%(progress.status)s|%(info.vcodec)s|%(info.acodec)s"
 
-    val VIDEO_QUALITIES = listOf(
-        "Лучшее доступное" to "best", "4K · 2160p" to "2160", "2K · 1440p" to "1440",
-        "Full HD · 1080p" to "1080", "HD · 720p" to "720", "480p" to "480", "360p" to "360",
-    )
-    val AUDIO_QUALITIES = listOf(
-        "Лучшее (VBR)" to "0", "320 кбит/с" to "320", "256 кбит/с" to "256",
-        "192 кбит/с" to "192", "128 кбит/с" to "128",
-    )
+    /** Значения качества; подписи к ним строит интерфейс (см. QualityOptions.kt), чтобы они переводились. */
+    val VIDEO_QUALITY_VALUES = listOf("best", "2160", "1440", "1080", "720", "480", "360")
+    val AUDIO_QUALITY_VALUES = listOf("0", "320", "256", "192", "128")
     val VIDEO_CONTAINERS = listOf("mp4", "mkv", "webm")
     val AUDIO_FORMATS = listOf("mp3", "m4a", "opus", "flac", "wav")
 
-    fun qualityLabel(mode: String, quality: String, container: String, audioFormat: String): String {
+    /** Подпись формата для истории (сохраняется в базе на языке, выбранном в момент загрузки). */
+    fun qualityLabel(context: Context, mode: String, quality: String, container: String, audioFormat: String): String {
         if (quality.startsWith("fmt:")) {
-            return (if (mode == "audio") audioFormat else container).uppercase() + " · ручной выбор"
+            return (if (mode == "audio") audioFormat else container).uppercase() + " · " +
+                context.getString(R.string.quality_manual_short)
         }
         if (mode == "audio") {
-            val q = if (quality == "0") "лучшее" else "$quality кбит/с"
+            val q = if (quality == "0") context.getString(R.string.quality_best_short)
+            else context.getString(R.string.kbps_fmt, quality)
             return audioFormat.uppercase() + " · " + q
         }
-        val q = if (quality == "best") "лучшее" else quality + "p"
+        val q = if (quality == "best") context.getString(R.string.quality_best_short) else quality + "p"
         return container.uppercase() + " · " + q
     }
 
@@ -253,10 +254,12 @@ object YtDlpArgs {
 
     /** (спецификация формата для yt-dlp, подпись для истории) при ручном выборе. */
     fun manualSpec(
-        audioMode: Boolean, container: String, video: FormatOption?, audio: FormatOption?, audioPickShown: Boolean,
+        context: Context, audioMode: Boolean, container: String, video: FormatOption?, audio: FormatOption?,
+        audioPickShown: Boolean,
     ): Pair<String, String> {
         val audioId = audio?.id.orEmpty()
-        val audioText = if (audioId.isNotEmpty() && audio != null) audio.label.substringBefore(" · ") else "звук авто"
+        val audioText = if (audioId.isNotEmpty() && audio != null) audio.label.substringBefore(" · ")
+        else context.getString(R.string.audio_auto_short)
         if (audioMode) return Pair(audioId.ifEmpty { "ba" }, audioText)
         if (video == null) return Pair("bv*+ba/b", container.uppercase())
         val cont = container.uppercase()
@@ -264,14 +267,14 @@ object YtDlpArgs {
         return when {
             video.muxed -> Pair(video.id, "$cont · $vText")
             audioPickShown && audioId.isNotEmpty() -> Pair("${video.id}+$audioId", "$cont · $vText + $audioText")
-            else -> Pair("${video.id}+ba/${video.id}", "$cont · $vText + звук авто")
+            else -> Pair("${video.id}+ba/${video.id}", "$cont · $vText + ${context.getString(R.string.audio_auto_short)}")
         }
     }
 
     // ------------------------------------------------------------------ информация о ссылке
     fun parseInfo(json: String): InfoSummary {
         val start = json.indexOf('{')
-        require(start >= 0) { "Пустой ответ yt-dlp" }
+        require(start >= 0) { "Empty response from yt-dlp" }
         val d = JSONObject(json.substring(start))
         val entries = d.optJSONArray("entries")
         val isPlaylist = d.str("_type") == "playlist"
@@ -290,7 +293,7 @@ object YtDlpArgs {
         }
         val (videos, audios) = if (isPlaylist) Pair(emptyList<FormatOption>(), emptyList<FormatOption>()) else summarizeFormats(d.optJSONArray("formats"))
         return InfoSummary(
-            title = d.str("title") ?: d.str("id") ?: "Без названия",
+            title = d.str("title") ?: d.str("id") ?: "",      // пустое название интерфейс заменит на «Без названия»
             uploader = d.str("uploader") ?: d.str("channel") ?: "",
             durationSec = d.num("duration")?.toLong(),
             thumbnail = thumb,
@@ -320,7 +323,7 @@ object YtDlpArgs {
     private fun sizeText(f: JSONObject): String {
         val n = f.num("filesize") ?: f.num("filesize_approx") ?: return ""
         val mb = n / 1024.0 / 1024.0
-        return if (mb >= 1024) "~%.1f ГБ".format(mb / 1024.0) else "~%.0f МБ".format(mb)
+        return if (mb >= 1024) "~%.1f GB".format(mb / 1024.0) else "~%.0f MB".format(mb)
     }
 
     /** Два списка для ручного выбора: видео (отдельно) и звук (отдельно). Если сайт даёт только готовые форматы — они попадают в видео с muxed=true. */
@@ -353,7 +356,7 @@ object YtDlpArgs {
                 val abr = f.num("abr") ?: f.num("tbr") ?: 0.0
                 val lang = f.str("language").orEmpty()
                 val codec = codecName(ac)
-                var label = if (abr > 0) "%.0f кбит/с · %s · %s".format(abr, codec, f.str("ext").orEmpty())
+                var label = if (abr > 0) "%.0f kbps · %s · %s".format(abr, codec, f.str("ext").orEmpty())
                 else "$codec · ${f.str("ext").orEmpty()}"
                 if (lang.isNotEmpty()) label += " · $lang"
                 val size = sizeText(f)

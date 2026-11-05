@@ -1,5 +1,8 @@
 package dev.ronova.zephyrus.ui.settings
 
+import android.app.Activity
+import android.content.Context
+import android.content.ContextWrapper
 import android.content.Intent
 import android.net.Uri
 import android.os.Build
@@ -54,9 +57,12 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.ronova.zephyrus.AppInfo
+import dev.ronova.zephyrus.AppLocale
 import dev.ronova.zephyrus.BuildConfig
 import dev.ronova.zephyrus.container
+import dev.ronova.zephyrus.engine.UpdateScheduler
 import dev.ronova.zephyrus.engine.YtDlpArgs
+import dev.ronova.zephyrus.engine.formatDate
 import dev.ronova.zephyrus.ui.components.DropdownField
 import dev.ronova.zephyrus.ui.components.GradientButton
 import dev.ronova.zephyrus.ui.components.Pill
@@ -68,6 +74,8 @@ import dev.ronova.zephyrus.ui.components.ZephyrusLogo
 import dev.ronova.zephyrus.ui.theme.AccentNames
 import dev.ronova.zephyrus.ui.theme.brandScheme
 import kotlin.math.roundToInt
+import androidx.compose.ui.res.stringResource
+import dev.ronova.zephyrus.R
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -97,7 +105,7 @@ fun SettingsScreen() {
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
         topBar = {
             LargeTopAppBar(
-                title = { Text("Настройки", fontWeight = FontWeight.Bold) },
+                title = { Text(stringResource(R.string.nav_settings), fontWeight = FontWeight.Bold) },
                 scrollBehavior = scroll,
                 colors = TopAppBarDefaults.largeTopAppBarColors(
                     containerColor = Color.Transparent, scrolledContainerColor = cs.surfaceContainer,
@@ -112,8 +120,8 @@ fun SettingsScreen() {
         ) {
             // ---------------- оформление ----------------
             item {
-                SectionCard(title = "Оформление") {
-                    val modes = listOf("system" to "Системная", "light" to "Светлая", "dark" to "Тёмная")
+                SectionCard(title = stringResource(R.string.appearance)) {
+                    val modes = listOf("system" to stringResource(R.string.theme_system), "light" to stringResource(R.string.theme_light), "dark" to stringResource(R.string.theme_dark))
                     SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
                         modes.forEachIndexed { i, (value, label) ->
                             SegmentedButton(
@@ -123,20 +131,31 @@ fun SettingsScreen() {
                             ) { Text(label) }
                         }
                     }
+                    var language by remember { mutableStateOf(AppLocale.current(context)) }
+                    DropdownField(
+                        label = stringResource(R.string.language),
+                        options = listOf(stringResource(R.string.language_system) to "") +
+                            AppLocale.SUPPORTED.map { it.nativeName to it.tag },
+                        selected = language,
+                        onSelect = { tag ->
+                            language = tag
+                            context.findActivity()?.let { AppLocale.set(it, tag) }
+                        },
+                    )
                     SwitchRow(
-                        title = "Динамические цвета (Material You)",
-                        description = if (dynamicAvailable) "Цвета подстраиваются под обои телефона"
-                        else "Доступно на Android 12 и новее",
+                        title = stringResource(R.string.dynamic_title),
+                        description = if (dynamicAvailable) stringResource(R.string.dynamic_desc)
+                        else stringResource(R.string.dynamic_unavailable),
                         checked = s.dynamicColor && dynamicAvailable,
                         onChecked = { v -> c.settings.update { copy(dynamicColor = v) } },
                         enabled = dynamicAvailable,
                     )
                     if (!(s.dynamicColor && dynamicAvailable)) {
-                        Text("Акцентный оттенок", style = MaterialTheme.typography.labelLarge, color = cs.onSurfaceVariant)
+                        Text(stringResource(R.string.accent), style = MaterialTheme.typography.labelLarge, color = cs.onSurfaceVariant)
                         Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-                            AccentNames.forEach { (key, name) ->
+                            AccentNames.forEach { (key, nameRes) ->
                                 AccentSwatch(
-                                    key = key, name = name, selected = s.accent == key,
+                                    key = key, name = stringResource(nameRes), selected = s.accent == key,
                                     onClick = { c.settings.update { copy(accent = key) } },
                                 )
                             }
@@ -147,33 +166,33 @@ fun SettingsScreen() {
 
             // ---------------- загрузка ----------------
             item {
-                SectionCard(title = "Загрузка по умолчанию") {
+                SectionCard(title = stringResource(R.string.downloads_defaults)) {
                     DropdownField(
-                        label = "Контейнер видео",
+                        label = stringResource(R.string.video_container),
                         options = YtDlpArgs.VIDEO_CONTAINERS.map { it.uppercase() to it },
                         selected = s.videoContainer,
                         onSelect = { v -> c.settings.update { copy(videoContainer = v) } },
                     )
                     DropdownField(
-                        label = "Формат аудио",
+                        label = stringResource(R.string.audio_format),
                         options = YtDlpArgs.AUDIO_FORMATS.map { it.uppercase() to it },
                         selected = s.audioFormat,
                         onSelect = { v -> c.settings.update { copy(audioFormat = v) } },
                     )
-                    SwitchRow("Встраивать обложку", s.embedThumbnail, { v -> c.settings.update { copy(embedThumbnail = v) } },
-                        description = "Картинка видео или трека внутри файла")
-                    SwitchRow("Записывать метаданные", s.embedMetadata, { v -> c.settings.update { copy(embedMetadata = v) } },
-                        description = "Название, автор, описание, главы")
-                    SwitchRow("Встраивать субтитры", s.embedSubs, { v -> c.settings.update { copy(embedSubs = v) } },
-                        description = "Только для видео")
+                    SwitchRow(stringResource(R.string.embed_thumb), s.embedThumbnail, { v -> c.settings.update { copy(embedThumbnail = v) } },
+                        description = stringResource(R.string.embed_thumb_desc))
+                    SwitchRow(stringResource(R.string.embed_meta), s.embedMetadata, { v -> c.settings.update { copy(embedMetadata = v) } },
+                        description = stringResource(R.string.embed_meta_desc))
+                    SwitchRow(stringResource(R.string.embed_subs), s.embedSubs, { v -> c.settings.update { copy(embedSubs = v) } },
+                        description = stringResource(R.string.embed_subs_desc))
                     SettingTextField(
-                        label = "Языки субтитров", value = s.subsLangs, placeholder = "ru,en",
+                        label = stringResource(R.string.subs_langs), value = s.subsLangs, placeholder = "ru,en",
                         enabled = s.embedSubs, resetKey = resetKey,
                     ) { v -> c.settings.update { copy(subsLangs = v) } }
-                    SwitchRow("SponsorBlock", s.sponsorblock, { v -> c.settings.update { copy(sponsorblock = v) } },
-                        description = "Вырезать рекламу и самопромо в YouTube-видео")
+                    SwitchRow(stringResource(R.string.sponsorblock), s.sponsorblock, { v -> c.settings.update { copy(sponsorblock = v) } },
+                        description = stringResource(R.string.sponsorblock_desc))
                     SettingTextField(
-                        label = "Шаблон имени файла", value = s.filenameTemplate, placeholder = YtDlpArgs.DEFAULT_TEMPLATE,
+                        label = stringResource(R.string.filename_template), value = s.filenameTemplate, placeholder = YtDlpArgs.DEFAULT_TEMPLATE,
                         resetKey = resetKey,
                     ) { v -> c.settings.update { copy(filenameTemplate = v) } }
                 }
@@ -181,15 +200,15 @@ fun SettingsScreen() {
 
             // ---------------- сеть ----------------
             item {
-                SectionCard(title = "Сеть") {
+                SectionCard(title = stringResource(R.string.network)) {
                     SettingTextField(
-                        label = "Ограничение скорости", value = s.rateLimit, placeholder = "без ограничений, например 5M",
+                        label = stringResource(R.string.rate_limit), value = s.rateLimit, placeholder = stringResource(R.string.rate_limit_hint),
                         resetKey = resetKey,
                     ) { v -> c.settings.update { copy(rateLimit = v) } }
                     Column {
-                        Text("Потоков фрагментов: ${s.fragments}", style = MaterialTheme.typography.bodyLarge)
+                        Text(stringResource(R.string.fragments, s.fragments), style = MaterialTheme.typography.bodyLarge)
                         Text(
-                            "Ускоряет загрузку HLS и DASH (1–16)",
+                            stringResource(R.string.fragments_desc),
                             style = MaterialTheme.typography.bodyMedium, color = cs.onSurfaceVariant,
                         )
                         Slider(
@@ -200,7 +219,7 @@ fun SettingsScreen() {
                         )
                     }
                     SettingTextField(
-                        label = "Прокси", value = s.proxy, placeholder = "http://host:port или socks5://…",
+                        label = stringResource(R.string.proxy), value = s.proxy, placeholder = stringResource(R.string.proxy_hint),
                         resetKey = resetKey,
                     ) { v -> c.settings.update { copy(proxy = v) } }
                 }
@@ -208,14 +227,14 @@ fun SettingsScreen() {
 
             // ---------------- уведомления и папка ----------------
             item {
-                SectionCard(title = "Файлы и уведомления") {
-                    SwitchRow("Уведомления", s.notifications, { v -> c.settings.update { copy(notifications = v) } },
-                        description = "Сообщение, когда загрузка завершена")
+                SectionCard(title = stringResource(R.string.files_notifications)) {
+                    SwitchRow(stringResource(R.string.notifications), s.notifications, { v -> c.settings.update { copy(notifications = v) } },
+                        description = stringResource(R.string.notifications_desc))
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                         Column(Modifier.weight(1f)) {
-                            Text("Папка загрузок", style = MaterialTheme.typography.bodyLarge)
+                            Text(stringResource(R.string.download_folder), style = MaterialTheme.typography.bodyLarge)
                             Text(
-                                "Загрузки/Zephyrus во внутренней памяти",
+                                stringResource(R.string.download_folder_desc),
                                 style = MaterialTheme.typography.bodyMedium, color = cs.onSurfaceVariant,
                             )
                         }
@@ -227,28 +246,45 @@ fun SettingsScreen() {
                             } catch (e: Exception) {
                                 // нет приложения «Загрузки»
                             }
-                        }) { Text("Открыть") }
+                        }) { Text(stringResource(R.string.open)) }
                     }
                 }
             }
 
             // ---------------- движок ----------------
             item {
-                SectionCard(title = "Движок") {
+                SectionCard(title = stringResource(R.string.engine)) {
                     Row(Modifier.fillMaxWidth()) {
                         StatTile("yt-dlp", engine.version, Modifier.weight(1f))
-                        StatTile("FFmpeg", "встроен в приложение", Modifier.weight(1f))
+                        StatTile("FFmpeg", stringResource(R.string.ffmpeg_builtin), Modifier.weight(1f))
                     }
+                    SwitchRow(
+                        title = stringResource(R.string.auto_update),
+                        checked = s.autoUpdate,
+                        onChecked = { v ->
+                            c.settings.update { copy(autoUpdate = v) }
+                            UpdateScheduler.sync(context, v)
+                        },
+                        description = stringResource(R.string.auto_update_desc),
+                    )
+                    Text(
+                        stringResource(
+                            R.string.last_check,
+                            if (engine.lastCheck > 0) formatDate(engine.lastCheck) else stringResource(R.string.never_checked),
+                        ),
+                        style = MaterialTheme.typography.bodySmall, color = cs.onSurfaceVariant,
+                    )
                     GradientButton(
-                        text = "Обновить движок",
+                        text = stringResource(R.string.update_engine),
                         onClick = { c.engine.update() },
                         enabled = engine.ready && !engine.updating && dl.idle,
                         icon = ZIcons.Download,
                     )
                     if (engine.updating) LinearProgressIndicator(Modifier.fillMaxWidth())
-                    if (engine.updateMessage.isNotEmpty()) {
+                    if (engine.updateMessageRes != 0) {
+                        val detail = if (engine.updateOk == false && engine.updateDetail.isNotEmpty()) "\n" + engine.updateDetail else ""
                         Text(
-                            engine.updateMessage,
+                            stringResource(engine.updateMessageRes) + detail,
                             color = when (engine.updateOk) {
                                 true -> cs.primary
                                 false -> cs.error
@@ -259,12 +295,12 @@ fun SettingsScreen() {
                     }
                     if (!dl.idle) {
                         Text(
-                            "Обновление станет доступно, когда закончатся загрузки.",
+                            stringResource(R.string.update_after_downloads),
                             style = MaterialTheme.typography.bodySmall, color = cs.onSurfaceVariant,
                         )
                     }
                     Text(
-                        "yt-dlp обновляется кнопкой выше. FFmpeg входит в состав библиотеки и обновляется вместе с новой версией приложения.",
+                        stringResource(R.string.engine_note),
                         style = MaterialTheme.typography.bodySmall, color = cs.onSurfaceVariant,
                     )
                 }
@@ -272,29 +308,29 @@ fun SettingsScreen() {
 
             // ---------------- о программе ----------------
             item {
-                SectionCard(title = "О программе") {
+                SectionCard(title = stringResource(R.string.about)) {
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                         ZephyrusLogo(72.dp)
                         Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                            Text("Zephyrus", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
-                            Pill("Версия ${BuildConfig.VERSION_NAME}")
+                            Text(stringResource(R.string.app_name), style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+                            Pill(stringResource(R.string.version_fmt, BuildConfig.VERSION_NAME))
                         }
                     }
                     Text(
-                        "Медиа-загрузчик на базе yt-dlp и FFmpeg.",
+                        stringResource(R.string.about_desc),
                         style = MaterialTheme.typography.bodyMedium, color = cs.onSurfaceVariant,
                     )
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                        Text("Автор", style = MaterialTheme.typography.bodyMedium, color = cs.onSurfaceVariant)
+                        Text(stringResource(R.string.author), style = MaterialTheme.typography.bodyMedium, color = cs.onSurfaceVariant)
                         Pill(AppInfo.AUTHOR)
                         Box(Modifier.weight(1f))
                         OutlinedButton(onClick = { openUrl(AppInfo.GITHUB_URL) }) { Text("GitHub  ↗") }
                     }
                     Text(
-                        "Лицензия ${AppInfo.LICENSE}. Используйте программу только для контента, на скачивание которого у вас есть право.",
+                        stringResource(R.string.license_note, AppInfo.LICENSE),
                         style = MaterialTheme.typography.bodySmall, color = cs.onSurfaceVariant,
                     )
-                    TextButton(onClick = { confirmReset = true }) { Text("Сбросить настройки", color = cs.error) }
+                    TextButton(onClick = { confirmReset = true }) { Text(stringResource(R.string.reset_settings), color = cs.error) }
                 }
             }
         }
@@ -303,16 +339,16 @@ fun SettingsScreen() {
     if (confirmReset) {
         AlertDialog(
             onDismissRequest = { confirmReset = false },
-            title = { Text("Сброс настроек") },
-            text = { Text("Вернуть все настройки к значениям по умолчанию? История и профили cookies не затрагиваются.") },
+            title = { Text(stringResource(R.string.reset_settings)) },
+            text = { Text(stringResource(R.string.reset_text)) },
             confirmButton = {
                 TextButton(onClick = {
                     c.settings.reset()
                     resetKey++
                     confirmReset = false
-                }) { Text("Сбросить") }
+                }) { Text(stringResource(R.string.reset)) }
             },
-            dismissButton = { TextButton(onClick = { confirmReset = false }) { Text("Отмена") } },
+            dismissButton = { TextButton(onClick = { confirmReset = false }) { Text(stringResource(R.string.cancel)) } },
         )
     }
 }
@@ -359,4 +395,10 @@ private fun AccentSwatch(key: String, name: String, selected: Boolean, onClick: 
         )
         Text(name, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
+}
+
+private tailrec fun Context.findActivity(): Activity? = when (this) {
+    is Activity -> this
+    is ContextWrapper -> baseContext.findActivity()
+    else -> null
 }

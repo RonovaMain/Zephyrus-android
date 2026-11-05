@@ -31,7 +31,7 @@ class DownloadService : Service() {
         if (intent?.action == ACTION_CANCEL) container.downloads.cancelCurrent()
         // startForeground нужно вызвать сразу, иначе система остановит службу
         ServiceCompat.startForeground(
-            this, NOTIFICATION_ID, build("Zephyrus", "Подготовка…", 0, true),
+            this, NOTIFICATION_ID, build(getString(R.string.app_name), appString(R.string.status_preparing), 0, true),
             ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC,
         )
         if (!observing) {
@@ -53,10 +53,12 @@ class DownloadService : Service() {
     private fun render(st: DlState) {
         val p = st.progress
         val pct = p.percent.toInt()
-        val title = st.current?.let { if (it.mode == "audio") "Загрузка аудио" else "Загрузка видео" } ?: "В очереди"
-        val queued = if (st.queue.isNotEmpty()) " · в очереди: ${st.queue.size}" else ""
+        val title = st.current?.let {
+            appString(if (it.mode == "audio") R.string.status_downloading_audio else R.string.status_downloading_video)
+        } ?: appString(R.string.svc_queued)
+        val queued = if (st.queue.isNotEmpty()) " · " + appString(R.string.svc_queue_suffix, st.queue.size) else ""
         val text = buildString {
-            append(p.status)
+            append(appString(p.statusRes))
             if (!p.indeterminate) append(" · ").append(pct).append('%')
             if (p.speed != null && p.speed > 0) append(" · ").append(formatSpeed(p.speed))
             append(queued)
@@ -80,10 +82,14 @@ class DownloadService : Service() {
             .setOnlyAlertOnce(true)
             .setOngoing(true)
             .setContentIntent(Notifications.openAppIntent(this))
-            .addAction(0, "Отмена", cancel)
+            .addAction(0, appString(R.string.cancel), cancel)
             .setProgress(100, percent, indeterminate)
             .build()
     }
+
+    /** Строки берём из контекста приложения: он учитывает язык, выбранный в настройках (Android 10–12). */
+    private fun appString(@androidx.annotation.StringRes id: Int, vararg args: Any): String =
+        applicationContext.getString(id, *args)
 
     override fun onDestroy() {
         scope.cancel()

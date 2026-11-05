@@ -57,6 +57,8 @@ import dev.ronova.zephyrus.engine.formatDate
 import dev.ronova.zephyrus.ui.components.Pill
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import androidx.compose.ui.res.stringResource
+import dev.ronova.zephyrus.R
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -87,10 +89,10 @@ fun HistoryScreen(onGoDownload: () -> Unit) {
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
         topBar = {
             LargeTopAppBar(
-                title = { Text("История", fontWeight = FontWeight.Bold) },
+                title = { Text(stringResource(R.string.nav_history), fontWeight = FontWeight.Bold) },
                 actions = {
                     IconButton(onClick = { confirmClear = true }, enabled = history.isNotEmpty()) {
-                        Icon(Icons.Filled.Delete, contentDescription = "Очистить историю")
+                        Icon(Icons.Filled.Delete, contentDescription = stringResource(R.string.history_clear_title))
                     }
                 },
                 scrollBehavior = scroll,
@@ -108,20 +110,21 @@ fun HistoryScreen(onGoDownload: () -> Unit) {
             item {
                 Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     Text(
-                        "Всё, что вы скачали. Если файл удалён — запись бледнеет, и его можно скачать заново.",
+                        stringResource(R.string.history_subtitle),
                         style = MaterialTheme.typography.bodyMedium, color = cs.onSurfaceVariant,
                     )
                     OutlinedTextField(
                         value = query, onValueChange = { query = it }, modifier = Modifier.fillMaxWidth(),
                         singleLine = true, shape = RoundedCornerShape(20.dp),
-                        placeholder = { Text("Поиск по названию или ссылке") },
+                        placeholder = { Text(stringResource(R.string.history_search)) },
                         leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null) },
                         trailingIcon = {
-                            if (query.isNotEmpty()) IconButton(onClick = { query = "" }) { Icon(Icons.Filled.Close, contentDescription = "Очистить") }
+                            if (query.isNotEmpty()) IconButton(onClick = { query = "" }) { Icon(Icons.Filled.Close, contentDescription = stringResource(R.string.clear)) }
                         },
                     )
                     Text(
-                        "Записей: ${filtered.size}" + if (missing > 0) " · файл удалён: $missing" else "",
+                        if (missing > 0) stringResource(R.string.history_count_missing, filtered.size, missing)
+                        else stringResource(R.string.history_count, filtered.size),
                         style = MaterialTheme.typography.labelMedium, color = cs.onSurfaceVariant,
                     )
                 }
@@ -129,7 +132,7 @@ fun HistoryScreen(onGoDownload: () -> Unit) {
             if (history.isEmpty()) {
                 item {
                     Text(
-                        "История пуста — скачайте что-нибудь, и оно появится здесь.",
+                        stringResource(R.string.history_empty),
                         style = MaterialTheme.typography.bodyLarge, color = cs.onSurfaceVariant,
                         modifier = Modifier.padding(vertical = 32.dp),
                     )
@@ -164,15 +167,15 @@ fun HistoryScreen(onGoDownload: () -> Unit) {
     if (confirmClear) {
         AlertDialog(
             onDismissRequest = { confirmClear = false },
-            title = { Text("Очистить историю") },
-            text = { Text("Удалить все записи истории? Сами файлы на устройстве останутся.") },
+            title = { Text(stringResource(R.string.history_clear_title)) },
+            text = { Text(stringResource(R.string.history_clear_text)) },
             confirmButton = {
                 TextButton(onClick = {
                     c.db.clearHistory()
                     confirmClear = false
-                }) { Text("Очистить") }
+                }) { Text(stringResource(R.string.clear)) }
             },
-            dismissButton = { TextButton(onClick = { confirmClear = false }) { Text("Отмена") } },
+            dismissButton = { TextButton(onClick = { confirmClear = false }) { Text(stringResource(R.string.cancel)) } },
         )
     }
 }
@@ -191,7 +194,7 @@ private fun HistoryCard(item: HistoryItem, exists: Boolean, onOpen: () -> Unit, 
                     item.title, fontWeight = FontWeight.SemiBold, maxLines = 2, overflow = TextOverflow.Ellipsis,
                     style = MaterialTheme.typography.titleSmall, modifier = Modifier.weight(1f),
                 )
-                IconButton(onClick = onDelete) { Icon(Icons.Filled.Close, contentDescription = "Удалить запись") }
+                IconButton(onClick = onDelete) { Icon(Icons.Filled.Close, contentDescription = stringResource(R.string.history_delete_entry)) }
             }
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
                 Pill(item.format)
@@ -199,8 +202,8 @@ private fun HistoryCard(item: HistoryItem, exists: Boolean, onOpen: () -> Unit, 
             }
             Text(item.url, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodySmall, color = cs.onSurfaceVariant)
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                FilledTonalButton(onClick = onOpen, enabled = exists) { Text("Открыть") }
-                OutlinedButton(onClick = onRedo, enabled = !exists) { Text("Скачать повторно") }
+                FilledTonalButton(onClick = onOpen, enabled = exists) { Text(stringResource(R.string.open)) }
+                OutlinedButton(onClick = onRedo, enabled = !exists) { Text(stringResource(R.string.history_redo)) }
             }
         }
     }
