@@ -181,6 +181,7 @@
     <string name="version_fmt">Version %1$s</string>
     <string name="about_desc">Media downloader based on yt-dlp and FFmpeg.</string>
     <string name="author">Author</string>
+    <string name="support_project">Support the project</string>
     <string name="license_note">License %1$s. Use the app only for content you have the right to download.</string>
     <string name="reset_settings">Reset settings</string>
     <string name="reset_text">Restore all settings to defaults? History and cookie profiles are not affected.</string>

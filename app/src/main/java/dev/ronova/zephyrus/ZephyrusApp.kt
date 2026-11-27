@@ -18,6 +18,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 object AppInfo {
     const val AUTHOR = "RonovaDev"
     const val GITHUB_URL = "https://github.com/RonovaMain/Zephyrus-android"
+    const val BOOSTY_URL = "https://boosty.to/ronovamain/donate"
     const val LICENSE = "GPL-3.0"
 }
 

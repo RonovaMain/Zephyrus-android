@@ -16,8 +16,8 @@ android {
         applicationId = "dev.ronova.zephyrus"
         minSdk = 29
         targetSdk = 35
-        versionCode = 2
-        versionName = "1.2.7"
+        versionCode = 3
+        versionName = "1.2.8"
     }
 
     signingConfigs {

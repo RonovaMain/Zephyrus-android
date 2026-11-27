@@ -181,6 +181,7 @@
     <string name="version_fmt">Версия %1$s</string>
     <string name="about_desc">Медиа-загрузчик на базе yt-dlp и FFmpeg.</string>
     <string name="author">Автор</string>
+    <string name="support_project">Поддержать проект</string>
     <string name="license_note">Лицензия %1$s. Используйте программу только для контента, на скачивание которого у вас есть право.</string>
     <string name="reset_settings">Сбросить настройки</string>
     <string name="reset_text">Вернуть все настройки к значениям по умолчанию? История и профили cookies не затрагиваются.</string>

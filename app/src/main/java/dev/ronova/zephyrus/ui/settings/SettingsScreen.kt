@@ -27,6 +27,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.LargeTopAppBar
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
@@ -323,8 +324,13 @@ fun SettingsScreen() {
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                         Text(stringResource(R.string.author), style = MaterialTheme.typography.bodyMedium, color = cs.onSurfaceVariant)
                         Pill(AppInfo.AUTHOR)
-                        Box(Modifier.weight(1f))
+                    }
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                         OutlinedButton(onClick = { openUrl(AppInfo.GITHUB_URL) }) { Text("GitHub  ↗") }
+                        FilledTonalButton(
+                            onClick = { openUrl(AppInfo.BOOSTY_URL) },
+                            modifier = Modifier.weight(1f),
+                        ) { Text(stringResource(R.string.support_project) + "  ↗", maxLines = 1) }
                     }
                     Text(
                         stringResource(R.string.license_note, AppInfo.LICENSE),
